@@ -3,64 +3,73 @@ on:
     types:
       - created
 jobs:
-  openshift-tests:
-    # This job only runs for '[test-all]' or '[test-openshift] pull request comments by owner, member
-    name: "OpenShift tests: ${{ matrix.version }} - ${{ matrix.context }}"
+  container-tests:
+    # This job only runs for '[test]' pull request comments by owner, member
     runs-on: ubuntu-20.04
+    name: "Container tests: ${{ matrix.version }} - ${{ matrix.context }}"
     strategy:
       fail-fast: false
       matrix:
         version: [ "7.3", "7.4", "8.0" ]
-        os_test: [ "centos7", "rhel7", "rhel8", "rhel9"]
+        os_test: [ "fedora", "centos7", "rhel7", "rhel8", "rhel9", "c9s"]
         include:
-          - tmt_plan: "centos7"
-            os_test: "centos7"
-            context: "CentOS7 - OpenShift 3"
+          - tmt_plan: "fedora"
+            os_test: "fedora"
+            context: "Fedora"
+            compose: "Fedora-latest"
             api_key: "TF_PUBLIC_API_KEY"
             branch: "main"
             tmt_repo: "https://github.com/sclorg/sclorg-testing-farm"
+          - tmt_plan: "centos7"
+            os_test: "centos7"
+            context: "CentOS7"
             compose: "CentOS-7"
-            test_name: "test-openshift"
-          - tmt_plan: "rhel7-openshift-3"
+            api_key: "TF_PUBLIC_API_KEY"
+            branch: "main"
+            tmt_repo: "https://github.com/sclorg/sclorg-testing-farm"
+          - tmt_plan: "rhel7-docker"
             os_test: "rhel7"
-            context: "RHEL7 - OpenShift 3"
+            context: "RHEL7"
             compose: "RHEL-7.9-Released"
             api_key: "TF_INTERNAL_API_KEY"
             branch: "master"
             tmt_repo: "https://gitlab.cee.redhat.com/platform-eng-core-services/sclorg-tmt-plans"
-            test_name: "test-openshift"
             tf_scope: "private"
-          - tmt_plan: "rhel7-openshift-4"
-            os_test: "rhel7"
-            context: "RHEL7 - OpenShift 4"
-            compose: "RHEL-7.9-Released"
-            test_name: "test-openshift-4"
-            api_key: "TF_INTERNAL_API_KEY"
-            branch: "master"
-            tmt_repo: "https://gitlab.cee.redhat.com/platform-eng-core-services/sclorg-tmt-plans"
-            tf_scope: "private"
-          - tmt_plan: "rhel8-openshift-4"
+          - tmt_plan: "rhel8-docker"
             os_test: "rhel8"
-            context: "RHEL8 - OpenShift 4"
+            context: "RHEL8"
             compose: "RHEL-8.6.0-Nightly"
-            test_name: "test-openshift-4"
             api_key: "TF_INTERNAL_API_KEY"
             branch: "master"
             tmt_repo: "https://gitlab.cee.redhat.com/platform-eng-core-services/sclorg-tmt-plans"
             tf_scope: "private"
-          - tmt_plan: "rhel9-openshift-4"
+          - tmt_plan: "rhel9-docker"
             os_test: "rhel9"
-            context: "RHEL9 - OpenShift 4"
+            context: "RHEL9"
             compose: "RHEL-9.0.0-Nightly"
-            test_name: "test-openshift-4"
             api_key: "TF_INTERNAL_API_KEY"
             branch: "master"
             tmt_repo: "https://gitlab.cee.redhat.com/platform-eng-core-services/sclorg-tmt-plans"
             tf_scope: "private"
+          - tmt_plan: "rhel9-unsubscribed-docker"
+            os_test: "rhel9"
+            context: "RHEL9 - Unsubscribed host"
+            compose: "RHEL-9.0.0-Nightly"
+            api_key: "TF_INTERNAL_API_KEY"
+            branch: "master"
+            tmt_repo: "https://gitlab.cee.redhat.com/platform-eng-core-services/sclorg-tmt-plans"
+            tf_scope: "private"
+          - tmt_plan: "c9s"
+            os_test: "c9s"
+            context: "CentOS Stream 9"
+            compose: "CentOS-Stream-9"
+            api_key: "TF_PUBLIC_API_KEY"
+            branch: "main"
+            tmt_repo: "https://github.com/sclorg/sclorg-testing-farm"
 
     if: |
       github.event.issue.pull_request
-      && (contains(github.event.comment.body, '[test-openshift]') || contains(github.event.comment.body, '[test-all]'))
+      && (contains(github.event.comment.body, '[test]') || contains(github.event.comment.body, '[test-all]'))
       && contains(fromJson('["OWNER", "MEMBER"]'), github.event.comment.author_association)
     steps:
       - name: Checkout repo
@@ -78,7 +87,7 @@ jobs:
           fi
           echo "::set-output name=DOCKERFILE_NAME::${dockerfile}"
 
-      - name: Check if ${{ matrix.version }}/${{ steps.vars.outputs.DOCKERFILE_NAME }} is present
+      - name: Check ${{ matrix.version }}/${{ steps.vars.outputs.DOCKERFILE_NAME }} is present
         id: check_dockerfile
         uses: andstor/file-existence-action@v1
         with:
@@ -102,5 +111,5 @@ jobs:
           tf_scope: ${{ matrix.tf_scope }}
           tmt_plan_regex: ${{ matrix.tmt_plan }}
           pull_request_status_name: "${{ matrix.context }} - ${{ matrix.version }}"
-          variables: "REPO_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY;REPO_NAME=$GITHUB_REPOSITORY;PR_NUMBER=${{ github.event.issue.number }};SINGLE_VERSION=${{ matrix.version }};OS=${{ matrix.os_test }};TEST_NAME=${{ matrix.test_name }}"
+          variables: "REPO_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY;REPO_NAME=$GITHUB_REPOSITORY;PR_NUMBER=${{ github.event.issue.number }};SINGLE_VERSION=${{ matrix.version }};OS=${{ matrix.os_test }};TEST_NAME=test"
           compose: ${{ matrix.compose }}
